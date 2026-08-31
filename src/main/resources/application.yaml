@@ -1,0 +1,42 @@
+spring:
+  application:
+    name: tarot-reading
+
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://localhost:3311/${TAROT_DB_NAME}?useSSL=false&serverTimezone=Asia/Seoul&characterEncoding=UTF-8
+    username: ${TAROT_DB_USERNAME}
+    password: ${TAROT_DB_PASSWORD}
+    hikari:
+      pool-name: ApiHikariPool
+      maximum-pool-size: 30 #부하테스트하면서 늘릴 예정
+      minimum-idle: 10
+
+  jpa:
+    hibernate:
+      ddl-auto: none
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+  ai:
+    openai:
+      api-key: ${SPRING_AI_OPENAI_API_KEY}
+      chat:
+        model: openai/gpt-5.4-mini
+        # GitHub Models 서버로 요청을 보냄
+        base-url: https://models.github.ai/inference
+        # 세부 API 경로
+        completions-path: /chat/completions
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info, metrics, prometheus
+  metrics:
+    tags:
+      application: ${spring.application.name}
+    enable:
+      hikaricp: true # HikariCP 커넥션 풀 메트릭 활성화
