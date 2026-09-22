@@ -22,10 +22,14 @@ public class Reading {
     @Column(nullable = false, length = 255)
     private String question;
 
+    @Column(length = 255)
+    private String clarification;
+
     private LocalDateTime createdAt;
 
-    public Reading(Long userId, String question) {
+    public Reading(Long userId, String question, String clarification) {
         this.userId = userId;
         this.question = question;
+        this.clarification = clarification;
     }
 }

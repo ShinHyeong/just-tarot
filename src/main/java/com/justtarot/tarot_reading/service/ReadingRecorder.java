@@ -4,7 +4,7 @@ import com.justtarot.tarot_reading.domain.reading.Reading;
 import com.justtarot.tarot_reading.domain.reading.ReadingCard;
 import com.justtarot.tarot_reading.domain.reading.ReadingCardRepository;
 import com.justtarot.tarot_reading.domain.reading.ReadingRepository;
-import com.justtarot.tarot_reading.dto.DrawnCard;
+import com.justtarot.tarot_reading.dto.reading.DrawnCard;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,8 +21,8 @@ public class ReadingRecorder {
      * 유저별 질문과 뽑은 카드 이력을 기록한다
      */
     @Transactional
-    public Long record(Long userId, String question, List<DrawnCard> drawnCards) {
-        Reading reading = readingRepository.save(new Reading(userId, question));
+    public Long record(Long userId, String question, String clarification, List<DrawnCard> drawnCards) {
+        Reading reading = readingRepository.save(new Reading(userId, question, clarification));
 
         List<ReadingCard> readingCards = drawnCards.stream()
                 .map(drawnCard -> new ReadingCard(
