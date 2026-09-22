@@ -11,4 +11,5 @@ import lombok.NoArgsConstructor;
 public class Symbol {
     private String symbol;
     private String meaning;
+    private String pole;
 }

@@ -1,15 +1,16 @@
 CREATE TABLE card (
-	id INT AUTO_INCREMENT PRIMARY KEY, -- 총 78개
+	id INT PRIMARY KEY,
 	name VARCHAR(50) NOT NULL,
-	arcana ENUM('MAJOR', 'MINOR') NOT NULL, -- 메이저/마이너 구분
-	suit ENUM('NONE', 'WANDS', 'CUPS', 'SWORDS', 'PENTACLES') DEFAULT 'NONE', -- 마이너 카드 원소
-	card_number INT NOT NULL, -- 메이저(0~21), 마이너(1~14, 11:Page, 12:Knight, 13:Queen, 14:King)
-	-- Ex. 페이지 완드 -> suit='WANDS', card_number=11
+	name_ko VARCHAR(50) NOT NULL,
+	arcana ENUM('MAJOR', 'MINOR') NOT NULL,
+	suit ENUM('NONE', 'WANDS', 'CUPS', 'SWORDS', 'PENTACLES') DEFAULT 'NONE',
+	card_number INT NOT NULL,
 
-	-- 조합 가능한 원자단위
-    symbols JSON NOT NULL, -- 객체 배열
-    themes JSON NOT NULL,  -- 문자열 배열
+    symbols JSON NOT NULL,
+    themes JSON NOT NULL,
     upright_energy VARCHAR(255) NOT NULL,
     reversed_energy VARCHAR(255) NOT NULL,
-    tension VARCHAR(255) NOT NULL
-);
+    axis VARCHAR(255) NOT NULL,
+
+    UNIQUE KEY uk_card_identity (arcana, suit, card_number)
+) DEFAULT CHARSET = utf8mb4;
