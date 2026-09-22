@@ -1,8 +1,8 @@
 package com.justtarot.tarot_reading.service.draw;
 
 import com.justtarot.tarot_reading.domain.card.TotalCardsCache;
-import com.justtarot.tarot_reading.dto.CardDto;
-import com.justtarot.tarot_reading.dto.DrawnCard;
+import com.justtarot.tarot_reading.dto.reading.CardDto;
+import com.justtarot.tarot_reading.dto.reading.DrawnCard;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
