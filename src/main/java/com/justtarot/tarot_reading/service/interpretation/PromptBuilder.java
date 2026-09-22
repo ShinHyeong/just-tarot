@@ -1,14 +1,15 @@
 package com.justtarot.tarot_reading.service.interpretation;
 
-import com.justtarot.tarot_reading.dto.CardDto;
-import com.justtarot.tarot_reading.dto.DrawnCard;
-import com.justtarot.tarot_reading.dto.analysis.CardInteraction;
-import com.justtarot.tarot_reading.dto.analysis.QuestionAnalysis;
-import lombok.RequiredArgsConstructor;
+import com.justtarot.tarot_reading.domain.card.Arcana;
+import com.justtarot.tarot_reading.domain.card.Symbol;
+import com.justtarot.tarot_reading.dto.reading.CardDto;
+import com.justtarot.tarot_reading.dto.reading.DrawnCard;
+import com.justtarot.tarot_reading.dto.reading.analysis.CardInteraction;
+import com.justtarot.tarot_reading.dto.reading.analysis.QuestionAnalysis;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
-import java.util.stream.Collectors;
+import java.util.function.Function;
 
 /**
  * "이번 요청"의 데이터 전처리 + 지시만 프롬프트로 만든다
@@ -18,120 +19,136 @@ import java.util.stream.Collectors;
  */
 @Component
 public class PromptBuilder {
+
     public String buildInteractionPrompt(String question,
                                          QuestionAnalysis analysis,
                                          List<DrawnCard> drawnCards) {
         StringBuilder sb = new StringBuilder();
 
         appendQuestionContext(sb, question, analysis);
-        appendSpread(sb, drawnCards);
 
-        sb.append("""
-                위 카드 조합에 대해 다음을 분석하라.
-                1. flow: 세 축(원소 흐름 / / 메이저-마이너 비중)을 근거로 한 서사 흐름
-                2. tensions: 카드들 사이에서 충돌하거나 긴장을 만드는 상징 쌍
-                3. reinforcements: 서로 강화하는 상징 쌍
-                4. pivotCardName, pivotReason: 이 조합에서 해석의 축이 되는 카드와 그 이유
-                5. questionLink: 위 분석이 사용자 질문의 어떤 지점과 맞닿는지
-
-                tensions 와 reinforcements 는 각각 최대 3쌍까지만 고른다.
-                억지로 채우지 말고, 근거가 약하면 적게 적어라.
-                
-                """);
+        appendSpread(sb, drawnCards, this::describe);
 
         return sb.toString();
     }
 
-    public String buildNarrativePrompt(String question, QuestionAnalysis analysis, List<DrawnCard> drawnCards,  CardInteraction interaction) {
+    public String buildNarrativePrompt(String question,
+                                       QuestionAnalysis analysis,
+                                       List<DrawnCard> drawnCards,
+                                       CardInteraction interaction) {
         StringBuilder sb = new StringBuilder();
 
         appendQuestionContext(sb, question, analysis);
-        appendSpread(sb, drawnCards);
+
+        appendSpread(sb, drawnCards, this::describeBrief);
+
         appendInteraction(sb, interaction);
-
-        sb.append("""
-                위 상호작용 분석을 뼈대로, 사용자 질문에 답하는 하나의 이어지는 이야기를 써라.
-                tensions 를 이야기의 갈등으로, pivot 을 전환점으로 사용하라.
-                
-                """);
-
-        // 되물었는데도 질문이 여전히 모호한 채로 넘어온 경우.
-        // 해석을 거부하는 대신 톤을 조정한다.
-        if (analysis.ambiguous()) {
-            sb.append("""
-                    참고: 이 질문은 상황이 충분히 구체적이지 않다.
-                    특정 인물이나 사건을 단정해서 지목하지 말고,
-                    사용자가 자기 상황에 대입해 읽을 수 있도록 조금 더 열린 문장으로 써라.
-                    마지막에 "어떤 상황을 떠올리며 물으셨는지 알려주시면 더 좁혀서 볼 수 있어요"
-                    같은 한 문장을 자연스럽게 덧붙여라.
-                    
-                    """);
-        }
 
         return sb.toString();
     }
 
+    /* 사용자 입력이 태그 경계를 위조하지 못하게 막는다. */
+    private String escape(String raw) {
+        if (raw == null) { return ""; }
+        return raw.replace("<", "&lt;").replace(">", "&gt;");
+    }
+
     private void appendQuestionContext(StringBuilder sb, String question, QuestionAnalysis analysis) {
-        sb.append("[질문]\n").append(question).append("\n\n");
-        sb.append("[질문 분석]\n")
-                .append("- 의도: ").append(analysis.intent()).append("\n")
-                .append("- 감정: ").append(analysis.emotion()).append("\n")
-                .append("- 정황: ").append(analysis.situation()).append("\n")
-                .append("- 주제: ").append(analysis.category()).append("\n");
-        sb.append("\n");
+        sb.append("<question>\n").append(escape(question)).append("\n</question>\n\n");
+        sb.append("<question_analysis>\n")
+                .append("  <intent>").append(escape(analysis.intent())).append("</intent>\n")
+                .append("  <emotion>").append(escape(analysis.emotion())).append("</emotion>\n")
+                .append("  <situation>").append(escape(analysis.situation())).append("</situation>\n")
+                .append("  <category>").append(escape(analysis.category())).append("</category>\n")
+                .append("  <ambiguous>").append(analysis.ambiguous() ? "true" : "false").append("</ambiguous>\n");
+        sb.append("</question_analysis>\n\n");
     }
 
-    private void appendSpread(StringBuilder sb, List<DrawnCard> drawnCards) {
-        sb.append("[스프레드]\n");
+    /**
+    * 프롬프트의 카드 정보 파트 구성
+    */
+    private void appendSpread(StringBuilder sb,
+                              List<DrawnCard> drawnCards,
+                              Function<DrawnCard, String> describer) {
+        sb.append("<spread>\n");
         for (DrawnCard drawnCard : drawnCards) {
-            sb.append(describe(drawnCard)).append("\n");
+            sb.append("  <card>\n")
+                .append(describer.apply(drawnCard));
+            sb.append("  </card>\n");
         }
-        sb.append("\n");
+        sb.append("</spread>\n\n");
     }
 
+    /* 1단계(질문 맥락에 맞는 카드간 상호작용 분석)를 위해 필요한 카드 정보*/
     private String describe(DrawnCard drawnCard) {
-        CardDto cardInfo = drawnCard.cardDto();
+        CardDto c = drawnCard.cardDto();
         boolean reversed = drawnCard.reversed();
-        String symbolsToString = cardInfo.symbols().stream()
-                .map(s -> s.getSymbol()+"("+s.getMeaning()+")")
-                .collect(Collectors.joining(", "));
-        return String.format("""
-                    %s (%s)
-                    - 아르카나: %s / 원소: %s / 숫자: %d
-                    - 지금 방향의 에너지: %s
-                    - 이 카드가 품은 긴장: %s
-                    - 상징: %s
-                    - 주제: %s
-                """,
-                cardInfo.name(),
-                reversed ? "역방향" : "정방향",
-                cardInfo.arcana(), cardInfo.suit(), cardInfo.cardNumber(),
-                reversed ? cardInfo.reversedEnergy() : cardInfo.uprightEnergy(),
-                cardInfo.tension(),
-                symbolsToString,
-                String.join(", ", cardInfo.themes())
-        );
+        String classification = c.arcana() == Arcana.MAJOR
+                ? "메이저 / 번호 " + c.cardNumber()
+                : c.suit().label() + " / 번호 " + c.cardNumber();
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("    <name>").append(escape(c.name())).append("</name>\n");
+        sb.append("    <orientation>").append(reversed ? "역방향" : "정방향").append("</orientation>\n");
+        sb.append("    <classification>").append(classification).append("</classification>\n");
+        sb.append("    <energy>").append(escape(reversed ? c.reversedEnergy() : c.uprightEnergy())).append("</energy>\n");
+        sb.append("    <axis>").append(escape(c.axis())).append("</axis>\n");
+        sb.append("    <symbols>\n");
+        for (Symbol s : c.symbols()) {
+            sb.append("      <symbol name=\"").append(escape(s.getSymbol())).append("\"");
+            if (s.getPole() != null) {
+                sb.append(" pole=\"").append(escape(s.getPole())).append("\"");
+            }
+            sb.append(">").append(escape(s.getMeaning())).append("</symbol>\n");
+        }
+        sb.append("    </symbols>\n");
+        sb.append("    <themes>\n");
+        for (String theme : c.themes()) {
+            sb.append("      <theme>").append(escape(theme)).append("</theme>\n");
+        }
+        sb.append("    </themes>\n");
+
+        return sb.toString();
+    }
+
+    /* 2단계(사용자 서사 생성)에서는 간소화된 카드 정보만 LLM에게 제공*/
+    private String describeBrief(DrawnCard drawnCard) {
+        CardDto c = drawnCard.cardDto();
+        boolean reversed = drawnCard.reversed();
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("    <name>").append(escape(c.name())).append("</name>\n");
+        sb.append("    <orientation>").append(reversed ? "역방향" : "정방향").append("</orientation>\n");
+        sb.append("    <energy>").append(escape(reversed ? c.reversedEnergy() : c.uprightEnergy())).append("</energy>\n");
+
+        return sb.toString();
     }
 
     private void appendInteraction(StringBuilder sb, CardInteraction interaction) {
-        sb.append("[상호작용 분석]\n")
-                .append("- 흐름: ").append(interaction.flow()).append('\n')
-                .append("- 축이 되는 카드: ").append(interaction.pivotCardName()).append("\n")
-                .append(" — ").append(interaction.pivotReason()).append('\n')
-                .append("- 질문과의 접점: ").append(interaction.questionLink()).append('\n');
-
-        appendPairs(sb, "긴장", interaction.tensions());
-        appendPairs(sb, "강화", interaction.reinforcements());
-        sb.append("\n");
+        sb.append("<interaction>\n")
+            .append("  <flow>").append(escape(interaction.flow())).append("</flow>\n")
+            .append("  <pivot>\n")
+            .append("    <card>").append(escape(interaction.pivotCardName())).append("</card>\n")
+            .append("    <reason>").append(escape(interaction.pivotReason())).append("</reason>\n")
+            .append("  </pivot>\n")
+            .append("  <question_link>").append(escape(interaction.questionLink())).append("</question_link>\n");
+        appendPairs(sb, "tensions", interaction.tensions());
+        appendPairs(sb, "reinforcements", interaction.reinforcements());
+        sb.append("</interaction>\n\n");
     }
 
-    private void appendPairs(StringBuilder sb, String label, List<CardInteraction.SymbolPair> pairs) {
-        if (pairs==null || pairs.isEmpty()) { return; }
-        sb.append("- ").append(label).append(":\n");
+    private void appendPairs(StringBuilder sb, String tag, List<CardInteraction.SymbolPair> pairs) {
+        if (pairs == null || pairs.isEmpty()) { return; }
+        sb.append("  <").append(tag).append(">\n");
         for (CardInteraction.SymbolPair pair : pairs) {
-            sb.append("  - ").append(pair.fromCardName()).append(" <-> ").append(pair.toCardName())
-                    .append(" : ").append(pair.reason())
-                    .append("\n");
+            sb.append("    <pair>\n")
+                    .append("      <from symbol=\"").append(escape(pair.fromSymbol())).append("\">")
+                    .append(escape(pair.fromCardName())).append("</from>\n")
+                    .append("      <to symbol=\"").append(escape(pair.toSymbol())).append("\">")
+                    .append(escape(pair.toCardName())).append("</to>\n")
+                    .append("      <reason>").append(escape(pair.reason())).append("</reason>\n")
+                    .append("    </pair>\n");
         }
+        sb.append("  </").append(tag).append(">\n");
     }
 }
