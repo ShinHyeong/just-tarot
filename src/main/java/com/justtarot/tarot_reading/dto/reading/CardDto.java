@@ -1,4 +1,4 @@
-package com.justtarot.tarot_reading.dto;
+package com.justtarot.tarot_reading.dto.reading;
 
 import com.justtarot.tarot_reading.domain.card.Arcana;
 import com.justtarot.tarot_reading.domain.card.Card;
@@ -17,12 +17,12 @@ public record CardDto(
         List<String> themes,
         String uprightEnergy,
         String reversedEnergy,
-        String tension
+        String axis
 ) {
     public static CardDto from(Card card) {
         return new CardDto(
                 card.getId(),
-                card.getName(),
+                card.getNameKo(),
                 card.getArcana(),
                 card.getSuit(),
                 card.getCardNumber(),
@@ -30,7 +30,7 @@ public record CardDto(
                 card.getThemes(),
                 card.getUprightEnergy(),
                 card.getReversedEnergy(),
-                card.getTension()
+                card.getAxis()
         );
     }
 }

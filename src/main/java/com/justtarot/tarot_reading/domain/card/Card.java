@@ -14,11 +14,13 @@ import java.util.List;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Card {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
 
     @Column(nullable = false, length = 50)
     private String name;
+
+    @Column(nullable = false, length = 50)
+    private String nameKo;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
@@ -46,5 +48,5 @@ public class Card {
     private String reversedEnergy;
 
     @Column(nullable = false)
-    private String tension;
+    private String axis;
 }
