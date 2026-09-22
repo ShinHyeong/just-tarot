@@ -1,6 +1,6 @@
 package com.justtarot.tarot_reading.domain.card;
 
-import com.justtarot.tarot_reading.dto.CardDto;
+import com.justtarot.tarot_reading.dto.reading.CardDto;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
