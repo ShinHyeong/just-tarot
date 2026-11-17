@@ -14,8 +14,8 @@ public record ReadingRequest(
         @Max(value = 5, message = "카드는 최대 5장까지 뽑을 수 있습니다.")
         int drawCount,
 
-        //되물음에 대한 응답인지 (CLARIFICATION을 받고 다시 보내는 요청인지)
-        boolean clarified,
+        //되묻기 후 다시 보낸 횟수. 최대 N번까지 등 정책 변경에 대비해 boolean 대신 int
+        int retryCount,
 
         //되물음에 대한 사용자의 답: "네"→후보 문장, 직접입력→사용자 문장,
         @Size(max=255, message = "보충 설명은 255자 이하여야 합니다")
