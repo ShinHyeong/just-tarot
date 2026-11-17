@@ -5,6 +5,8 @@ import com.justtarot.tarot_reading.dto.reading.analysis.CardInteraction;
 import com.justtarot.tarot_reading.dto.reading.analysis.QuestionAnalysis;
 import com.justtarot.tarot_reading.dto.reading.request.PreparedReadingRequest;
 import com.justtarot.tarot_reading.dto.reading.request.ReadingRequest;
+import com.justtarot.tarot_reading.exception.ClarificationRequiredException;
+import com.justtarot.tarot_reading.exception.QuestionNotSupportedException;
 import com.justtarot.tarot_reading.service.draw.CardDrawer;
 import com.justtarot.tarot_reading.service.interpretation.CardInterpreter;
 import com.justtarot.tarot_reading.service.interpretation.PromptBuilder;
@@ -35,12 +37,12 @@ public class ReadingService {
 
         if (analysis.offTopic()) {
             log.info("타로 상담 대상이 아닌 요청입니다. userId={}", userId);
-            return PreparedReadingRequest.notSupported();   // 카드 X, DB 기록 X, 이후 LLM 호출 X
+            throw new QuestionNotSupportedException();   // 카드 X, DB 기록 X, 이후 LLM 호출 X
         }
 
         //되묻기는 1차 요청에서 1번만, 물어볼 후보가 확보되었을 때만: 사용자에게 빈 배열을 제안하지 않게
         if (!request.clarified() && analysis.needsClarification()) {
-            return PreparedReadingRequest.needsClarification(analysis.candidate());
+            throw new ClarificationRequiredException(analysis.candidate());
         }
 
         //2차 요청까지 한 질문이 모호하든 말든 이후 프로세스를 진행한다

@@ -23,4 +23,8 @@ public record ApiResponse<T>(
     public static ApiResponse<Void> fail(StatusCode statusCode) {
         return new ApiResponse<>(statusCode.getCode(), statusCode.getMessage(), null);
     }
+
+    public static <T> ApiResponse<T> fail(StatusCode statusCode, T data) {
+        return new ApiResponse<>(statusCode.getCode(), statusCode.getMessage(), data);
+    }
 }

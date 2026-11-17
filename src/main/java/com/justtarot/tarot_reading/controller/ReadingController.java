@@ -4,9 +4,7 @@ import com.justtarot.tarot_reading.dto.global.response.ApiResponse;
 import com.justtarot.tarot_reading.dto.reading.request.PreparedReadingRequest;
 import com.justtarot.tarot_reading.dto.reading.request.ReadingRequest;
 import com.justtarot.tarot_reading.dto.global.response.StatusCode;
-import com.justtarot.tarot_reading.dto.reading.response.ClarificationResponse;
 import com.justtarot.tarot_reading.dto.reading.response.DrawnCardResponse;
-import com.justtarot.tarot_reading.dto.reading.response.NotSupportedResponse;
 import com.justtarot.tarot_reading.dto.reading.response.ReadingResponse;
 import com.justtarot.tarot_reading.service.ReadingService;
 import jakarta.validation.Valid;
@@ -24,22 +22,17 @@ import reactor.core.scheduler.Schedulers;
 public class ReadingController {
     private final ReadingService readingService;
 
-    /* 스트리밍 X 버전 */
+    /* 스트리밍 X 버전 — 되묻기·주제 밖 질문은 예외로 던져져 GlobalExceptionHandler 가 응답한다 */
     @PostMapping("/reading")
     public ResponseEntity<?> read(@RequestHeader("X-User-Id") Long userId,
                                   @Valid @RequestBody ReadingRequest request){
         PreparedReadingRequest preparedRequest = readingService.prepare(userId, request);
 
-        return switch (preparedRequest.status()) {
-            case NOT_SUPPORTED -> ResponseEntity.ok(ApiResponse.success(NotSupportedResponse.of(request)));
-
-            case CLARIFICATION -> ResponseEntity.ok(ApiResponse.success(ClarificationResponse.of(request, preparedRequest.candidate())));
-
-            case READY -> ResponseEntity.ok(ApiResponse.success(ReadingResponse.of(preparedRequest.cards(), readingService.interpret(preparedRequest))));
-        };
+        return ResponseEntity.ok(ApiResponse.success(
+                ReadingResponse.of(preparedRequest.cards(), readingService.interpret(preparedRequest))));
     }
 
-    /* 스트리밍(SSE) 버전 */
+    /* 스트리밍(SSE) 버전 — 되묻기·주제 밖 질문은 prepare 동기 구간에서 던져져 SSE 시작 전에 JSON 으로 반환된다 */
     @PostMapping(value = "/reading/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<ServerSentEvent<Object>> readStream(@RequestHeader("X-User-Id") Long userId,
                                                     @Valid @RequestBody ReadingRequest request) {
@@ -49,31 +42,20 @@ public class ReadingController {
         // 다음과 같은 이유로 JSON 래핑이 부하보다 이점이 더 크다고 판단험
         // 1. 띄어쓰기 보존: Raw 전송 시 SSE 파서 규격에 의해 토큰 앞뒤 띄어쓰기가 누락되는 문제 방지 (JSON 직렬화 활용).
         // 2. FE 파싱 일관성 : 모든 이벤트(error/card/token)의 응답 구조를 통일하여 프론트엔드 파싱 일관성
-        return switch (preparedRequest.status()) {
-            case NOT_SUPPORTED -> Flux.just(event("not_supported",
-                    ApiResponse.success(NotSupportedResponse.of(request))));
+        Flux<ServerSentEvent<Object>> cards =
+                Flux.just(event("card",
+                        ApiResponse.success(DrawnCardResponse.from(preparedRequest.cards()))));
 
-            case CLARIFICATION -> Flux.just(event("clarification",
-                    ApiResponse.success(ClarificationResponse.of(request, preparedRequest.candidate()))));
-
-            case READY -> {
-                Flux<ServerSentEvent<Object>> cards =
-                        Flux.just(event("card",
-                                ApiResponse.success(DrawnCardResponse.from(preparedRequest.cards()))));
-
-                Flux<ServerSentEvent<Object>> tokens =
-                        Flux.defer(() -> readingService.interpretStream(preparedRequest))
-                                .subscribeOn(Schedulers.boundedElastic())
-                                .map(token -> event("token",
-                                        ApiResponse.success(token)));
-
-                yield Flux.concat(cards, tokens, Flux.just(event("done", preparedRequest.readingId())))
+        Flux<ServerSentEvent<Object>> tokens =
+                Flux.defer(() -> readingService.interpretStream(preparedRequest))
                         .subscribeOn(Schedulers.boundedElastic())
-                        .onErrorResume(e -> Flux.just(
-                                event("error",
-                                        ApiResponse.fail(StatusCode.READING_FAILED))));
-            }
-        };
+                        .map(token -> event("token",
+                                ApiResponse.success(token)));
+
+        return Flux.concat(cards, tokens, Flux.just(event("done", preparedRequest.readingId())))
+                .subscribeOn(Schedulers.boundedElastic())
+                .onErrorResume(e -> Flux.just(event("error",
+                        ApiResponse.fail(StatusCode.READING_FAILED))));
     }
 
     private ServerSentEvent<Object> event(String name, Object data) {
