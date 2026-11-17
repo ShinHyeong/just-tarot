@@ -1,4 +1,4 @@
-package com.justtarot.tarot_reading.dto.reading.request;
+package com.justtarot.tarot_reading.service.interpretation;
 
 import com.justtarot.tarot_reading.dto.reading.DrawnCard;
 import com.justtarot.tarot_reading.dto.reading.analysis.QuestionAnalysis;

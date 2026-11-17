@@ -3,12 +3,12 @@ package com.justtarot.tarot_reading.service;
 import com.justtarot.tarot_reading.dto.reading.DrawnCard;
 import com.justtarot.tarot_reading.dto.reading.analysis.CardInteraction;
 import com.justtarot.tarot_reading.dto.reading.analysis.QuestionAnalysis;
-import com.justtarot.tarot_reading.dto.reading.request.PreparedReadingRequest;
-import com.justtarot.tarot_reading.dto.reading.request.ReadingRequest;
+import com.justtarot.tarot_reading.dto.reading.request.ReadingCommand;
 import com.justtarot.tarot_reading.exception.ClarificationRequiredException;
 import com.justtarot.tarot_reading.exception.QuestionNotSupportedException;
 import com.justtarot.tarot_reading.service.draw.CardDrawer;
 import com.justtarot.tarot_reading.service.interpretation.CardInterpreter;
+import com.justtarot.tarot_reading.service.interpretation.PreparedReadingRequest;
 import com.justtarot.tarot_reading.service.interpretation.PromptBuilder;
 import com.justtarot.tarot_reading.service.question.QuestionAnalyzer;
 import lombok.RequiredArgsConstructor;
@@ -34,8 +34,8 @@ public class ReadingService {
      * 카드 해석 전 작업 : 질문 분석 -> 카드 뽑기 -> 이력 기록
      * 질문이 모호하다면 사용자에게 되묻는다. 이탈 방지를 위해 되묻기는 딱 한 번만 한다.
      */
-    public PreparedReadingRequest prepare(Long userId, ReadingRequest request) {
-        QuestionAnalysis analysis = questionAnalyzer.analyze(request);
+    public PreparedReadingRequest prepare(Long userId, ReadingCommand command) {
+        QuestionAnalysis analysis = questionAnalyzer.analyze(command.effectiveQuestion());
 
         if (analysis.offTopic()) {
             log.info("타로 상담 대상이 아닌 요청입니다. userId={}", userId);
@@ -43,19 +43,19 @@ public class ReadingService {
         }
 
         //되묻기는 1차 요청에서 1번만, 물어볼 후보가 확보되었을 때만: 사용자에게 빈 배열을 제안하지 않게
-        if (request.retryCount() < CLARIFICATIONS_LIMIT && analysis.needsClarification()) {
+        if (command.retryCount() < CLARIFICATIONS_LIMIT && analysis.needsClarification()) {
             throw new ClarificationRequiredException(analysis.candidate());
         }
 
         //2차이상 요청까지 한 질문이 모호하든 말든 이후 프로세스를 진행한다
         //2차이상 요청까지 한 질문이 모호할 경우 로그를 남긴다
-        if (request.retryCount() >= CLARIFICATIONS_LIMIT && analysis.ambiguous()) {
+        if (command.retryCount() >= CLARIFICATIONS_LIMIT && analysis.ambiguous()) {
             log.info("재시도에도 질문이 모호합니다. 모호한 상태로 진행합니다. userId={}", userId);
         }
 
-        List<DrawnCard> drawnCards = cardDrawer.draw(request.drawCount());
-        Long readingId = readingRecorder.record(userId, request.question(), request.clarification(), drawnCards);
-        return PreparedReadingRequest.ready(readingId, request.effectiveQuestion(), analysis, drawnCards);
+        List<DrawnCard> drawnCards = cardDrawer.draw(command.drawCount());
+        Long readingId = readingRecorder.record(userId, command.question(), command.clarification(), drawnCards);
+        return PreparedReadingRequest.ready(readingId, command.effectiveQuestion(), analysis, drawnCards);
     }
 
     /**

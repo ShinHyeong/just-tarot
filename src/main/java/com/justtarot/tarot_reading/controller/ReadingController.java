@@ -1,7 +1,7 @@
 package com.justtarot.tarot_reading.controller;
 
 import com.justtarot.tarot_reading.dto.global.response.ApiResponse;
-import com.justtarot.tarot_reading.dto.reading.request.PreparedReadingRequest;
+import com.justtarot.tarot_reading.service.interpretation.PreparedReadingRequest;
 import com.justtarot.tarot_reading.dto.reading.request.ReadingRequest;
 import com.justtarot.tarot_reading.dto.global.response.StatusCode;
 import com.justtarot.tarot_reading.dto.reading.response.DrawnCardResponse;
@@ -26,7 +26,7 @@ public class ReadingController {
     @PostMapping("/reading")
     public ResponseEntity<?> read(@RequestHeader("X-User-Id") Long userId,
                                   @Valid @RequestBody ReadingRequest request){
-        PreparedReadingRequest preparedRequest = readingService.prepare(userId, request);
+        PreparedReadingRequest preparedRequest = readingService.prepare(userId, request.toCommand());
 
         return ResponseEntity.ok(ApiResponse.success(
                 ReadingResponse.of(preparedRequest.cards(), readingService.interpret(preparedRequest))));
@@ -36,7 +36,7 @@ public class ReadingController {
     @PostMapping(value = "/reading/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<ServerSentEvent<Object>> readStream(@RequestHeader("X-User-Id") Long userId,
                                                     @Valid @RequestBody ReadingRequest request) {
-        PreparedReadingRequest preparedRequest = readingService.prepare(userId, request);
+        PreparedReadingRequest preparedRequest = readingService.prepare(userId, request.toCommand());
 
         // 네트워크 낭비 방지을 위해 SSE event 필드를 구분자로 쓰고 순수 문자열만을 전송할 수도 있지만,
         // 다음과 같은 이유로 JSON 래핑이 부하보다 이점이 더 크다고 판단험
