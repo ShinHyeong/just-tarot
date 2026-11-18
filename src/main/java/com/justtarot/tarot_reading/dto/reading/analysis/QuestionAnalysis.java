@@ -28,7 +28,7 @@ public record QuestionAnalysis(
         boolean offTopic,
 
         @JsonPropertyDescription("""
-                해석 방향을 잡을 수 없으면 true. 주제 미특정 / 대상·상황 전무 / 서로 다른 고민 2개 이상 혼재 중 \
+                해석 방향을 잡을 수 없으면 true. 주제 미특정 / 대상 및 상황 전무 / 서로 다른 고민 2개 이상 혼재 중 \
                 하나라도 해당.""")
         boolean ambiguous,
 

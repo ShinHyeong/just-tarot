@@ -2,7 +2,6 @@ package com.justtarot.tarot_reading.service.question;
 
 import com.justtarot.tarot_reading.config.AiModelProperties;
 import com.justtarot.tarot_reading.dto.reading.analysis.QuestionAnalysis;
-import com.justtarot.tarot_reading.dto.reading.request.ReadingRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.stereotype.Component;
@@ -70,18 +69,18 @@ public class QuestionAnalyzer {
                 .build();
     }
 
-    public QuestionAnalysis analyze(ReadingRequest request) {
+    public QuestionAnalysis analyze(String effectiveQuestion) {
         try {
             QuestionAnalysis analysis = chatClient.prompt()
-                    .user("<question>\n" + request.effectiveQuestion() + "\n</question>")
+                    .user("<question>\n" + effectiveQuestion + "\n</question>")
                     .call()
                     .entity(QuestionAnalysis.class, spec -> spec.useProviderStructuredOutput());
-            return analysis == null ? QuestionAnalysis.fallback(request.effectiveQuestion()) : analysis;
+            return analysis == null ? QuestionAnalysis.fallback(effectiveQuestion) : analysis;
 
         } catch (Exception e) {
             //분석 실패로 리딩 전체를 실패시키지 않게
-            log.warn("질문 분석 실패, fallback 하겠습니다. question: {}", request.effectiveQuestion());
-            return QuestionAnalysis.fallback(request.effectiveQuestion());
+            log.warn("질문 분석 실패, fallback 하겠습니다. question: {}", effectiveQuestion);
+            return QuestionAnalysis.fallback(effectiveQuestion);
         }
     }
 }

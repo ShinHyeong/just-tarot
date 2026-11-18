@@ -2,7 +2,10 @@ package com.justtarot.tarot_reading.exception;
 
 import com.justtarot.tarot_reading.dto.global.response.ApiResponse;
 import com.justtarot.tarot_reading.dto.global.response.StatusCode;
+import com.justtarot.tarot_reading.dto.reading.response.ClarificationResponse;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
@@ -14,6 +17,14 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 @Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+    @ExceptionHandler(ClarificationRequiredException.class)
+    public ResponseEntity<ApiResponse<ClarificationResponse>> handleClarification(ClarificationRequiredException e) {
+        return ResponseEntity.status(e.httpStatus())
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(ApiResponse.fail(e.getStatusCode(), new ClarificationResponse(e.getCandidate())));
+    }
+
+
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<ApiResponse<Void>> handleNotFound(BusinessException e) {
         return ResponseEntity.status(e.httpStatus())
